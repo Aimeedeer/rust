@@ -497,7 +497,6 @@ pub mod f64;
 #[macro_use]
 pub mod thread;
 pub mod ascii;
-
 pub mod backtrace;
 pub mod collections;
 pub mod env;
@@ -551,9 +550,10 @@ mod backtrace_rs;
 #[stable(feature = "simd_x86", since = "1.27.0")]
 pub use std_detect::is_x86_feature_detected;
 #[doc(hidden)]
+#[cfg(all(not(target_arch = "bpf"), not(target_arch = "sbf")))]
 #[unstable(feature = "stdsimd", issue = "48556")]
 pub use std_detect::*;
-
+#[cfg(all(not(target_arch = "bpf"), not(target_arch = "sbf")))]
 #[unstable(feature = "stdsimd", issue = "48556")]
 pub use std_detect::{
     is_aarch64_feature_detected, is_arm_feature_detected, is_mips64_feature_detected,

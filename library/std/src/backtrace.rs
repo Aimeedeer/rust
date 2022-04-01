@@ -65,6 +65,7 @@
 //! how backtraces are captured.
 
 #![unstable(feature = "backtrace", issue = "53487")]
+#![allow(unused)]
 
 #[cfg(test)]
 mod tests;
@@ -249,8 +250,14 @@ impl fmt::Debug for BytesOrWide {
 }
 
 impl Backtrace {
+    #[cfg(any(target_arch = "bpf", target_arch = "sbf"))]
+    fn enabled() -> bool {
+        false
+    }
+
     /// Returns whether backtrace captures are enabled through environment
     /// variables.
+    #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
     fn enabled() -> bool {
         // Cache the result of reading the environment variables to make
         // backtrace captures speedy, because otherwise reading environment

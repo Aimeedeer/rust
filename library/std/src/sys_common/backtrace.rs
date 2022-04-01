@@ -15,7 +15,13 @@ use crate::sys_common::mutex::StaticMutex;
 /// Max number of frames to print.
 const MAX_NB_FRAMES: usize = 100;
 
+#[cfg(any(target_arch = "bpf", target_arch = "sbf"))]
+pub unsafe fn lock() -> impl Drop {
+    alloc::vec::Vec::<()>::new()
+}
+
 // SAFETY: Don't attempt to lock this reentrantly.
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 pub unsafe fn lock() -> impl Drop {
     static LOCK: StaticMutex = StaticMutex::new();
     LOCK.lock()
@@ -152,8 +158,14 @@ pub enum RustBacktrace {
     RuntimeDisabled,
 }
 
+#[cfg(any(target_arch = "bpf", target_arch = "sbf"))]
+pub fn rust_backtrace_env() -> RustBacktrace {
+    RustBacktrace::RuntimeDisabled
+}
+
 // For now logging is turned off by default, and this function checks to see
 // whether the magical environment variable is present to see if it's turned on.
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 pub fn rust_backtrace_env() -> RustBacktrace {
     // If the `backtrace` feature of this crate isn't enabled quickly return
     // `None` so this can be constant propagated all over the place to turn
