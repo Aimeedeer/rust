@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 use crate::backtrace_rs::{self, BacktraceFmt, BytesOrWideString, PrintFmt};
 use crate::borrow::Cow;
 /// Common code for printing the backtrace in the same way across the different
@@ -28,6 +29,7 @@ pub unsafe fn lock() -> impl Drop {
 }
 
 /// Prints the current backtrace.
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 pub fn print(w: &mut dyn Write, format: PrintFmt) -> io::Result<()> {
     // There are issues currently linking libbacktrace into tests, and in
     // general during libstd's own unit tests we're not testing this path. In
@@ -45,6 +47,7 @@ pub fn print(w: &mut dyn Write, format: PrintFmt) -> io::Result<()> {
     }
 }
 
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 unsafe fn _print(w: &mut dyn Write, format: PrintFmt) -> io::Result<()> {
     struct DisplayBacktrace {
         format: PrintFmt,
@@ -57,6 +60,7 @@ unsafe fn _print(w: &mut dyn Write, format: PrintFmt) -> io::Result<()> {
     write!(w, "{}", DisplayBacktrace { format })
 }
 
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 unsafe fn _print_fmt(fmt: &mut fmt::Formatter<'_>, print_fmt: PrintFmt) -> fmt::Result {
     // Always 'fail' to get the cwd when running under Miri -
     // this allows Miri to display backtraces in isolation mode
@@ -153,6 +157,7 @@ where
 }
 
 pub enum RustBacktrace {
+    #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
     Print(PrintFmt),
     Disabled,
     RuntimeDisabled,
@@ -206,6 +211,7 @@ pub fn rust_backtrace_env() -> RustBacktrace {
 /// Prints the filename of the backtrace frame.
 ///
 /// See also `output`.
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 pub fn output_filename(
     fmt: &mut fmt::Formatter<'_>,
     bows: BytesOrWideString<'_>,
