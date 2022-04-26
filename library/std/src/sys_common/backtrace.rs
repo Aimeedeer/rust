@@ -1,6 +1,5 @@
-#![allow(unused)]
+#![cfg(all(not(target_arch = "bpf"), not(target_arch = "sbf")))]
 
-#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 use crate::backtrace_rs::{self, BacktraceFmt, BytesOrWideString, PrintFmt};
 use crate::borrow::Cow;
 /// Common code for printing the backtrace in the same way across the different
@@ -16,20 +15,13 @@ use crate::sys_common::mutex::StaticMutex;
 /// Max number of frames to print.
 const MAX_NB_FRAMES: usize = 100;
 
-#[cfg(any(target_arch = "bpf", target_arch = "sbf"))]
-pub unsafe fn lock() -> impl Drop {
-    alloc::vec::Vec::<()>::new()
-}
-
 // SAFETY: Don't attempt to lock this reentrantly.
-#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 pub unsafe fn lock() -> impl Drop {
     static LOCK: StaticMutex = StaticMutex::new();
     LOCK.lock()
 }
 
 /// Prints the current backtrace.
-#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 pub fn print(w: &mut dyn Write, format: PrintFmt) -> io::Result<()> {
     // There are issues currently linking libbacktrace into tests, and in
     // general during libstd's own unit tests we're not testing this path. In
@@ -47,7 +39,6 @@ pub fn print(w: &mut dyn Write, format: PrintFmt) -> io::Result<()> {
     }
 }
 
-#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 unsafe fn _print(w: &mut dyn Write, format: PrintFmt) -> io::Result<()> {
     struct DisplayBacktrace {
         format: PrintFmt,
@@ -60,7 +51,6 @@ unsafe fn _print(w: &mut dyn Write, format: PrintFmt) -> io::Result<()> {
     write!(w, "{}", DisplayBacktrace { format })
 }
 
-#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 unsafe fn _print_fmt(fmt: &mut fmt::Formatter<'_>, print_fmt: PrintFmt) -> fmt::Result {
     // Always 'fail' to get the cwd when running under Miri -
     // this allows Miri to display backtraces in isolation mode
@@ -157,20 +147,13 @@ where
 }
 
 pub enum RustBacktrace {
-    #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
     Print(PrintFmt),
     Disabled,
     RuntimeDisabled,
 }
 
-#[cfg(any(target_arch = "bpf", target_arch = "sbf"))]
-pub fn rust_backtrace_env() -> RustBacktrace {
-    RustBacktrace::RuntimeDisabled
-}
-
 // For now logging is turned off by default, and this function checks to see
 // whether the magical environment variable is present to see if it's turned on.
-#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 pub fn rust_backtrace_env() -> RustBacktrace {
     // If the `backtrace` feature of this crate isn't enabled quickly return
     // `None` so this can be constant propagated all over the place to turn
@@ -211,7 +194,6 @@ pub fn rust_backtrace_env() -> RustBacktrace {
 /// Prints the filename of the backtrace frame.
 ///
 /// See also `output`.
-#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 pub fn output_filename(
     fmt: &mut fmt::Formatter<'_>,
     bows: BytesOrWideString<'_>,

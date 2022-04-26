@@ -95,6 +95,7 @@ mod tests;
 // `Backtrace`, but that's a relatively small price to pay relative to capturing
 // a backtrace or actually symbolizing it.
 
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 use crate::backtrace_rs::{self, BytesOrWideString};
 use crate::cell::UnsafeCell;
 use crate::env;
@@ -102,6 +103,7 @@ use crate::ffi::c_void;
 use crate::fmt;
 use crate::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use crate::sync::Once;
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 use crate::sys_common::backtrace::{lock, output_filename};
 use crate::vec::Vec;
 
@@ -158,6 +160,7 @@ pub struct BacktraceFrame {
 
 #[derive(Debug)]
 enum RawFrame {
+    #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
     Actual(backtrace_rs::Frame),
     #[cfg(test)]
     Fake,
@@ -190,6 +193,7 @@ impl fmt::Debug for Backtrace {
         let mut dbg = fmt.debug_list();
 
         for frame in frames {
+            #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
             if frame.frame.ip().is_null() {
                 continue;
             }
@@ -217,6 +221,7 @@ impl fmt::Debug for BacktraceSymbol {
         // https://github.com/rust-lang/rust/issues/65280#issuecomment-638966585
         write!(fmt, "{{ ")?;
 
+        #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
         if let Some(fn_name) = self.name.as_ref().map(|b| backtrace_rs::SymbolName::new(b)) {
             write!(fmt, "fn: \"{:#}\"", fn_name)?;
         } else {
@@ -236,6 +241,7 @@ impl fmt::Debug for BacktraceSymbol {
 }
 
 impl fmt::Debug for BytesOrWide {
+    #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         output_filename(
             fmt,
@@ -246,6 +252,11 @@ impl fmt::Debug for BytesOrWide {
             backtrace_rs::PrintFmt::Short,
             crate::env::current_dir().as_ref().ok(),
         )
+    }
+
+    #[cfg(any(target_arch = "bpf", target_arch = "sbf"))]
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "<unknown>")
     }
 }
 
@@ -326,6 +337,7 @@ impl Backtrace {
 
     // Capture a backtrace which start just before the function addressed by
     // `ip`
+    #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
     fn create(ip: usize) -> Backtrace {
         // SAFETY: We don't attempt to lock this reentrantly.
         let _lock = unsafe { lock() };
@@ -360,6 +372,13 @@ impl Backtrace {
         Backtrace { inner }
     }
 
+    #[cfg(any(target_arch = "bpf", target_arch = "sbf"))]
+    fn create(ip: usize) -> Backtrace {
+        Backtrace {
+            inner: Inner::Unsupported
+        }
+    }
+
     /// Returns the status of this backtrace, indicating whether this backtrace
     /// request was unsupported, disabled, or a stack trace was actually
     /// captured.
@@ -383,6 +402,7 @@ impl<'a> Backtrace {
 }
 
 impl fmt::Display for Backtrace {
+    #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let capture = match &self.inner {
             Inner::Unsupported => return fmt.write_str("unsupported backtrace"),
@@ -391,13 +411,13 @@ impl fmt::Display for Backtrace {
         };
 
         let full = fmt.alternate();
+
         let (frames, style) = if full {
             (&capture.frames[..], backtrace_rs::PrintFmt::Full)
         } else {
             (&capture.frames[capture.actual_start..], backtrace_rs::PrintFmt::Short)
         };
 
-        // When printing paths we try to strip the cwd if it exists, otherwise
         // we just print the path as-is. Note that we also only do this for the
         // short format, because if it's full we presumably want to print
         // everything.
@@ -427,6 +447,11 @@ impl fmt::Display for Backtrace {
             }
         }
         f.finish()?;
+        Ok(())
+    }
+
+    #[cfg(any(target_arch = "bpf", target_arch = "sbf"))]
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         Ok(())
     }
 }
@@ -459,6 +484,7 @@ impl LazilyResolvedCapture {
 unsafe impl Sync for LazilyResolvedCapture where Capture: Sync {}
 
 impl Capture {
+    #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
     fn resolve(&mut self) {
         // If we're already resolved, nothing to do!
         if self.resolved {
@@ -478,6 +504,7 @@ impl Capture {
                 #[cfg(test)]
                 RawFrame::Fake => unimplemented!(),
             };
+
             unsafe {
                 backtrace_rs::resolve_frame_unsynchronized(frame, |symbol| {
                     symbols.push(BacktraceSymbol {
@@ -493,11 +520,22 @@ impl Capture {
             }
         }
     }
+
+    #[cfg(any(target_arch = "bpf", target_arch = "sbf"))]
+    fn resolve(&mut self) {
+        // If we're already resolved, nothing to do!
+        if self.resolved {
+            return;
+        }
+        self.resolved = true;
+    }
 }
 
+#[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
 impl RawFrame {
     fn ip(&self) -> *mut c_void {
         match self {
+            #[cfg(not(any(target_arch = "bpf", target_arch = "sbf")))]
             RawFrame::Actual(frame) => frame.ip(),
             #[cfg(test)]
             RawFrame::Fake => 1 as *mut c_void,
